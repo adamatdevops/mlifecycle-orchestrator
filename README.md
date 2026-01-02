@@ -2,9 +2,18 @@
 
 Zero-touch ML model deployment platform with policy-as-code governance.
 
-[![CI](https://github.com/USERNAME/mlifecycle-orchestrator/actions/workflows/ci.yml/badge.svg)](https://github.com/USERNAME/mlifecycle-orchestrator/actions/workflows/ci.yml)
-[![Model Governance](https://github.com/USERNAME/mlifecycle-orchestrator/actions/workflows/model-governance.yml/badge.svg)](https://github.com/USERNAME/mlifecycle-orchestrator/actions/workflows/model-governance.yml)
-[![Security Scan](https://github.com/USERNAME/mlifecycle-orchestrator/actions/workflows/security-scan.yml/badge.svg)](https://github.com/USERNAME/mlifecycle-orchestrator/actions/workflows/security-scan.yml)
+[![CI](https://github.com/adamatdevops/mlifecycle-orchestrator/actions/workflows/ci.yml/badge.svg)](https://github.com/adamatdevops/mlifecycle-orchestrator/actions/workflows/ci.yml)
+[![Model Governance](https://github.com/adamatdevops/mlifecycle-orchestrator/actions/workflows/model-governance.yml/badge.svg)](https://github.com/adamatdevops/mlifecycle-orchestrator/actions/workflows/model-governance.yml)
+[![Security Scan](https://github.com/adamatdevops/mlifecycle-orchestrator/actions/workflows/security-scan.yml/badge.svg)](https://github.com/adamatdevops/mlifecycle-orchestrator/actions/workflows/security-scan.yml)
+[![Zero-Touch Deploy](https://github.com/adamatdevops/mlifecycle-orchestrator/actions/workflows/zero-touch-deploy.yml/badge.svg)](https://github.com/adamatdevops/mlifecycle-orchestrator/actions/workflows/zero-touch-deploy.yml)
+
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
+[![Terraform](https://img.shields.io/badge/terraform-%235835CC.svg?logo=terraform&logoColor=white)](https://www.terraform.io/)
+[![Kubernetes](https://img.shields.io/badge/kubernetes-%23326ce5.svg?logo=kubernetes&logoColor=white)](https://kubernetes.io/)
+[![OPA](https://img.shields.io/badge/OPA-Policy--as--Code-blue)](https://www.openpolicyagent.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
+[![PyTorch](https://img.shields.io/badge/PyTorch-EE4C2C?logo=pytorch&logoColor=white)](https://pytorch.org/)
 
 ## Overview
 

@@ -1,0 +1,112 @@
+# =============================================================================
+# Terraform Ignore File
+# =============================================================================
+# Files and directories to exclude when uploading to Terraform Cloud/Enterprise.
+# Similar to .gitignore but specific to Terraform remote operations.
+# =============================================================================
+
+# Git
+.git/
+.gitignore
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfstate.backup
+.terraform.lock.hcl
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# Terraform variables (may contain secrets)
+*.tfvars
+*.tfvars.json
+terraform.tfvars
+terraform.tfvars.json
+
+# Environment-specific configs
+*.auto.tfvars
+*.auto.tfvars.json
+
+# Plan files
+*.tfplan
+tfplan
+plan.out
+
+# Backend configs (may contain secrets)
+backend.hcl
+backend-config.hcl
+
+# IDE and editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Documentation (not needed for apply)
+docs/
+*.md
+README*
+CHANGELOG*
+LICENSE*
+
+# Test files
+tests/
+test/
+*_test.go
+*_test.tf
+
+# CI/CD files
+.github/
+.gitlab-ci.yml
+.circleci/
+Jenkinsfile
+azure-pipelines.yml
+
+# Scripts (not needed for terraform operations)
+scripts/
+*.sh
+*.bash
+*.ps1
+
+# Python files (if any helper scripts exist)
+*.py
+*.pyc
+__pycache__/
+.pytest_cache/
+venv/
+.env
+
+# Module documentation
+examples/
+modules/**/README.md
+modules/**/CHANGELOG.md
+
+# Diagrams and images
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.svg
+*.drawio
+
+# Archives
+*.zip
+*.tar
+*.tar.gz
+*.tgz
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+tmp/
+temp/
+.tmp/
