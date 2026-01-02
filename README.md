@@ -1,4 +1,4 @@
-# MLLifecycle Orchestrator
+# ML Lifecycle Orchestrator
 
 Zero-touch ML model deployment platform with policy-as-code governance.
 
