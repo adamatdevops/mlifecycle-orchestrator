@@ -142,20 +142,20 @@ class Metrics:
         self.request_latency_sum += latency
         self.instances_processed += instances
 
-        # Update histogram
-        latency_ms = latency * 1000
-        if latency_ms <= 10:
+        # Update histogram (cumulative buckets - each bucket includes all values <= threshold)
+        latency_s = latency  # Already in seconds
+        if latency_s <= 0.01:
             self.latency_histogram["le_10ms"] += 1
-        elif latency_ms <= 50:
+        if latency_s <= 0.05:
             self.latency_histogram["le_50ms"] += 1
-        elif latency_ms <= 100:
+        if latency_s <= 0.1:
             self.latency_histogram["le_100ms"] += 1
-        elif latency_ms <= 500:
+        if latency_s <= 0.5:
             self.latency_histogram["le_500ms"] += 1
-        elif latency_ms <= 1000:
+        if latency_s <= 1.0:
             self.latency_histogram["le_1000ms"] += 1
-        else:
-            self.latency_histogram["le_inf"] += 1
+        # +Inf bucket always includes all observations
+        self.latency_histogram["le_inf"] += 1
 
         if success:
             self.prediction_count += 1
@@ -196,18 +196,16 @@ inference_validation_errors_total{{model="{MODEL_NAME}",version="{MODEL_VERSION}
 # TYPE inference_auth_errors_total counter
 inference_auth_errors_total{{model="{MODEL_NAME}",version="{MODEL_VERSION}"}} {self.auth_error_count}
 
-# HELP inference_latency_seconds Average inference latency
-# TYPE inference_latency_seconds gauge
-inference_latency_seconds{{model="{MODEL_NAME}",version="{MODEL_VERSION}"}} {avg_latency:.6f}
-
-# HELP inference_latency_histogram Inference latency histogram
-# TYPE inference_latency_histogram histogram
-inference_latency_bucket{{model="{MODEL_NAME}",version="{MODEL_VERSION}",le="0.01"}} {self.latency_histogram["le_10ms"]}
-inference_latency_bucket{{model="{MODEL_NAME}",version="{MODEL_VERSION}",le="0.05"}} {self.latency_histogram["le_50ms"]}
-inference_latency_bucket{{model="{MODEL_NAME}",version="{MODEL_VERSION}",le="0.1"}} {self.latency_histogram["le_100ms"]}
-inference_latency_bucket{{model="{MODEL_NAME}",version="{MODEL_VERSION}",le="0.5"}} {self.latency_histogram["le_500ms"]}
-inference_latency_bucket{{model="{MODEL_NAME}",version="{MODEL_VERSION}",le="1.0"}} {self.latency_histogram["le_1000ms"]}
-inference_latency_bucket{{model="{MODEL_NAME}",version="{MODEL_VERSION}",le="+Inf"}} {self.latency_histogram["le_inf"]}
+# HELP inference_request_duration_seconds Inference request duration in seconds
+# TYPE inference_request_duration_seconds histogram
+inference_request_duration_seconds_bucket{{model="{MODEL_NAME}",version="{MODEL_VERSION}",le="0.01"}} {self.latency_histogram["le_10ms"]}
+inference_request_duration_seconds_bucket{{model="{MODEL_NAME}",version="{MODEL_VERSION}",le="0.05"}} {self.latency_histogram["le_50ms"]}
+inference_request_duration_seconds_bucket{{model="{MODEL_NAME}",version="{MODEL_VERSION}",le="0.1"}} {self.latency_histogram["le_100ms"]}
+inference_request_duration_seconds_bucket{{model="{MODEL_NAME}",version="{MODEL_VERSION}",le="0.5"}} {self.latency_histogram["le_500ms"]}
+inference_request_duration_seconds_bucket{{model="{MODEL_NAME}",version="{MODEL_VERSION}",le="1.0"}} {self.latency_histogram["le_1000ms"]}
+inference_request_duration_seconds_bucket{{model="{MODEL_NAME}",version="{MODEL_VERSION}",le="+Inf"}} {self.latency_histogram["le_inf"]}
+inference_request_duration_seconds_sum{{model="{MODEL_NAME}",version="{MODEL_VERSION}"}} {self.request_latency_sum:.6f}
+inference_request_duration_seconds_count{{model="{MODEL_NAME}",version="{MODEL_VERSION}"}} {self.request_count}
 """
 
 

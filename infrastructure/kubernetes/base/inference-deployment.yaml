@@ -12,6 +12,9 @@ metadata:
   labels:
     app: inference-service
     app.kubernetes.io/component: inference
+    app.kubernetes.io/version: "1.0.0"  # Replaced by kustomize overlay
+    team: ml-platform
+    version: "1.0.0"  # Replaced by kustomize overlay
   annotations:
     description: "Zero-touch deployed ML inference service"
 spec:
@@ -69,7 +72,7 @@ spec:
 
       containers:
         - name: inference
-          image: inference-service:latest  # Replaced by kustomize overlay
+          image: inference-service:1.0.0  # Replaced by kustomize overlay
           imagePullPolicy: Always
 
           ports:

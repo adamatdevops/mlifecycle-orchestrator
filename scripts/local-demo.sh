@@ -42,6 +42,7 @@ check_command() {
 PREREQS_OK=true
 check_command "docker" || PREREQS_OK=false
 check_command "python3" || PREREQS_OK=false
+check_command "jq" || PREREQS_OK=false
 
 # OPA is optional for demo
 if command -v opa &> /dev/null; then

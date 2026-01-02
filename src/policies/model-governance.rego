@@ -347,11 +347,14 @@ deny contains msg if {
     msg := "Model URI must use HTTPS, not HTTP"
 }
 
-deny contains msg if {
+# Note: Real vulnerability scanning should be done via external tools
+# (Snyk, Dependabot, pip-audit) in the CI pipeline, not in OPA policies.
+# This is a placeholder that demonstrates the pattern.
+warn contains msg if {
     some dep in input.spec.dependencies
-    is_known_vulnerable(dep)
+    is_exact_vulnerable_match(dep)
     msg := sprintf(
-        "Dependency '%s' has known security vulnerabilities",
+        "Dependency '%s' may have known vulnerabilities - verify with security scanner",
         [dep]
     )
 }
@@ -421,15 +424,16 @@ is_valid_version_constraint(dep) if {
     not contains(dep, ">")
 }
 
-# Known vulnerable packages (simplified - in production, use external CVE database)
-known_vulnerable_packages := {
-    "torch<1.9.0",
-    "tensorflow<2.4.0",
-    "numpy<1.19.0"
+# Known vulnerable package patterns (simplified - in production, use external CVE database)
+# These are EXACT matches only - real scanning should use pip-audit, Snyk, etc.
+known_vulnerable_exact := {
+    "torch==1.8.0",
+    "torch==1.8.1",
+    "tensorflow==2.3.0",
+    "numpy==1.18.0"
 }
 
-is_known_vulnerable(dep) if {
-    some vuln in known_vulnerable_packages
-    startswith(dep, extract_package_name(vuln))
-    # Simple version check - in production use proper version comparison
+# Only matches exact vulnerable versions, not safe versions
+is_exact_vulnerable_match(dep) if {
+    dep in known_vulnerable_exact
 }

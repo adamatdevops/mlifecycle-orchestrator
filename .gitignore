@@ -409,3 +409,6 @@ tmp/
 
 #Ignore vscode AI rules
 .github/instructions/codacy.instructions.md
+
+# Context files (AI team context - not for git)
+context/

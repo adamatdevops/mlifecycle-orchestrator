@@ -18,10 +18,16 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m'
 
-# Check OPA is installed
+# Check prerequisites
 if ! command -v opa &> /dev/null; then
     echo -e "${RED}Error: OPA is not installed${NC}"
     echo "Install OPA: https://www.openpolicyagent.org/docs/latest/#1-download-opa"
+    exit 1
+fi
+
+if ! command -v jq &> /dev/null; then
+    echo -e "${RED}Error: jq is not installed${NC}"
+    echo "Install jq: https://stedolan.github.io/jq/download/"
     exit 1
 fi
 

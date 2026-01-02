@@ -61,6 +61,19 @@ spec:
     score: 0.05
   dependencies:
     - torch>=2.0.0
+  data_sources:
+    - source: transactions-prod
+      approved: true
+  inference:
+    resources:
+      requests:
+        cpu: "500m"
+        memory: "1Gi"
+      limits:
+        cpu: "2"
+        memory: "4Gi"
+  monitoring:
+    enabled: true
 ```
 
 ### 2. Push to Repository

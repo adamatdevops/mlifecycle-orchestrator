@@ -1,17 +1,13 @@
 # Tests
 
-This directory contains integration and end-to-end tests for the MLLifecycle Orchestrator platform.
+This directory contains test configurations for the MLLifecycle Orchestrator platform.
 
 ## Test Structure
 
 ```
 tests/
-├── README.md
-├── pipeline/           # Pipeline integration tests
-│   ├── test_policy_validation.sh
-│   └── test_workflow_execution.sh
-└── integration/        # End-to-end tests
-    └── test_deployment.sh
+├── README.md           # This file
+└── pipeline/           # Reserved for future pipeline tests
 ```
 
 ## Running Tests
@@ -34,8 +30,9 @@ pytest tests/ -v
 ### Local Integration
 
 ```bash
-# Run local demo
+# Run local demo and policy validation
 ./scripts/local-demo.sh
+./scripts/validate-policies.sh
 ```
 
 ## CI/CD Testing

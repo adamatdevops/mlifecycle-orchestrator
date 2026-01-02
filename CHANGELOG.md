@@ -72,5 +72,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - IRSA for AWS service access
 - Encrypted storage (S3, EBS)
 
-[Unreleased]: https://github.com/USERNAME/mlifecycle-orchestrator/compare/v1.0.0...HEAD
-[1.0.0]: https://github.com/USERNAME/mlifecycle-orchestrator/releases/tag/v1.0.0
+[Unreleased]: https://github.com/adamatdevops/mlifecycle-orchestrator/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/adamatdevops/mlifecycle-orchestrator/releases/tag/v1.0.0

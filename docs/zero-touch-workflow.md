@@ -89,8 +89,7 @@ spec:
     - torch>=2.0.0
     - numpy>=1.24.0
   data_sources:
-    - name: transactions
-      type: s3
+    - source: transactions-prod
       approved: true
 ```
 
