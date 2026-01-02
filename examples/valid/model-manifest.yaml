@@ -129,6 +129,39 @@ spec:
       periodSeconds: 5
 
   # -------------------------------------------------------------------------
+  # Monitoring (Required for production)
+  # -------------------------------------------------------------------------
+  monitoring:
+    enabled: true
+    drift_detection:
+      enabled: true
+      schedule: "0 */6 * * *"  # Every 6 hours
+      threshold: 0.3
+    alerting:
+      enabled: true
+      channels:
+        - slack
+        - pagerduty
+      rules:
+        - name: high_error_rate
+          condition: "error_rate > 0.05"
+          severity: critical
+        - name: high_latency
+          condition: "latency_p99 > 500ms"
+          severity: warning
+
+  # -------------------------------------------------------------------------
+  # Explainability (Recommended)
+  # -------------------------------------------------------------------------
+  explainability:
+    method: shap
+    enabled: true
+    feature_importance:
+      - transaction_amount
+      - merchant_category
+      - hour_of_day
+
+  # -------------------------------------------------------------------------
   # Observability
   # -------------------------------------------------------------------------
   observability:

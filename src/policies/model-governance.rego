@@ -202,6 +202,161 @@ warn contains msg if {
 }
 
 # -----------------------------------------------------------------------------
+# Semantic Versioning Policies
+# -----------------------------------------------------------------------------
+
+deny contains msg if {
+    not input.spec.model.version
+    msg := "Model must have a version number"
+}
+
+deny contains msg if {
+    version := input.spec.model.version
+    not is_valid_semver(version)
+    msg := sprintf(
+        "Model version '%s' is not valid semantic versioning (expected: X.Y.Z)",
+        [version]
+    )
+}
+
+deny contains msg if {
+    some dep in input.spec.dependencies
+    not is_valid_version_constraint(dep)
+    msg := sprintf(
+        "Dependency '%s' must have a valid version constraint (>=, ==, ~=)",
+        [dep]
+    )
+}
+
+# Prevent unpinned dependencies in production
+warn contains msg if {
+    some dep in input.spec.dependencies
+    not contains(dep, ">=")
+    not contains(dep, "==")
+    not contains(dep, "~=")
+    msg := sprintf(
+        "Dependency '%s' should have version constraint for reproducibility",
+        [dep]
+    )
+}
+
+# -----------------------------------------------------------------------------
+# Monitoring & Observability Policies
+# -----------------------------------------------------------------------------
+
+deny contains msg if {
+    not input.spec.monitoring
+    msg := "Model must include monitoring configuration"
+}
+
+deny contains msg if {
+    input.spec.monitoring
+    not input.spec.monitoring.enabled
+    msg := "Continuous monitoring must be enabled for production models"
+}
+
+warn contains msg if {
+    input.spec.monitoring
+    not input.spec.monitoring.drift_detection
+    msg := "Drift detection should be configured for monitoring"
+}
+
+warn contains msg if {
+    input.spec.monitoring
+    not input.spec.monitoring.alerting
+    msg := "Alerting configuration recommended for production models"
+}
+
+# -----------------------------------------------------------------------------
+# Model Explainability Policies (Recommended)
+# -----------------------------------------------------------------------------
+
+warn contains msg if {
+    not input.spec.explainability
+    msg := "Model should include explainability metrics (SHAP, LIME, feature importance)"
+}
+
+warn contains msg if {
+    input.spec.explainability
+    not input.spec.explainability.method
+    msg := "Explainability section should specify method used"
+}
+
+# -----------------------------------------------------------------------------
+# Performance Regression Policies
+# -----------------------------------------------------------------------------
+
+deny contains msg if {
+    input.spec.previous_version
+    input.spec.metrics.accuracy < input.spec.previous_version.metrics.accuracy - 0.02
+    msg := sprintf(
+        "Model accuracy %.3f is more than 2%% lower than previous version %.3f",
+        [input.spec.metrics.accuracy, input.spec.previous_version.metrics.accuracy]
+    )
+}
+
+deny contains msg if {
+    input.spec.previous_version
+    input.spec.metrics.f1_score < input.spec.previous_version.metrics.f1_score - 0.02
+    msg := sprintf(
+        "Model F1 score %.3f is more than 2%% lower than previous version %.3f",
+        [input.spec.metrics.f1_score, input.spec.previous_version.metrics.f1_score]
+    )
+}
+
+# Latency regression check
+warn contains msg if {
+    input.spec.inference.latency_p99_ms
+    input.spec.previous_version.inference.latency_p99_ms
+    input.spec.inference.latency_p99_ms > input.spec.previous_version.inference.latency_p99_ms * 1.5
+    msg := sprintf(
+        "Model inference latency %.0fms is 50%% higher than previous version %.0fms",
+        [input.spec.inference.latency_p99_ms, input.spec.previous_version.inference.latency_p99_ms]
+    )
+}
+
+# -----------------------------------------------------------------------------
+# Training Data Quality Policies
+# -----------------------------------------------------------------------------
+
+warn contains msg if {
+    input.spec.training
+    input.spec.training.sample_size < 1000
+    msg := sprintf(
+        "Training sample size %d is below recommended minimum of 1000",
+        [input.spec.training.sample_size]
+    )
+}
+
+deny contains msg if {
+    input.spec.training
+    input.spec.training.sample_size < 100
+    msg := sprintf(
+        "Training sample size %d is below minimum required of 100",
+        [input.spec.training.sample_size]
+    )
+}
+
+# -----------------------------------------------------------------------------
+# Security Policies
+# -----------------------------------------------------------------------------
+
+deny contains msg if {
+    input.spec.model.uri
+    startswith(input.spec.model.uri, "http://")
+    msg := "Model URI must use HTTPS, not HTTP"
+}
+
+deny contains msg if {
+    some dep in input.spec.dependencies
+    is_known_vulnerable(dep)
+    msg := sprintf(
+        "Dependency '%s' has known security vulnerabilities",
+        [dep]
+    )
+}
+
+# -----------------------------------------------------------------------------
 # Helper Functions
 # -----------------------------------------------------------------------------
 
@@ -218,4 +373,63 @@ is_approved_data_source(source) if {
 
 is_approved_data_source(source) if {
     source.approved == true
+}
+
+# Validate semantic versioning (X.Y.Z format)
+is_valid_semver(version) if {
+    regex.match(`^\d+\.\d+\.\d+(-[a-zA-Z0-9.]+)?(\+[a-zA-Z0-9.]+)?$`, version)
+}
+
+# Also allow quoted versions like "2.1.0"
+is_valid_semver(version) if {
+    trimmed := trim(version, "\"")
+    regex.match(`^\d+\.\d+\.\d+(-[a-zA-Z0-9.]+)?(\+[a-zA-Z0-9.]+)?$`, trimmed)
+}
+
+# Validate version constraint in dependency
+is_valid_version_constraint(dep) if {
+    contains(dep, ">=")
+}
+
+is_valid_version_constraint(dep) if {
+    contains(dep, "==")
+}
+
+is_valid_version_constraint(dep) if {
+    contains(dep, "~=")
+}
+
+is_valid_version_constraint(dep) if {
+    contains(dep, "<=")
+}
+
+is_valid_version_constraint(dep) if {
+    contains(dep, "<")
+}
+
+is_valid_version_constraint(dep) if {
+    contains(dep, ">")
+}
+
+# Package without version constraint (allowed but warned)
+is_valid_version_constraint(dep) if {
+    not contains(dep, ">=")
+    not contains(dep, "==")
+    not contains(dep, "~=")
+    not contains(dep, "<=")
+    not contains(dep, "<")
+    not contains(dep, ">")
+}
+
+# Known vulnerable packages (simplified - in production, use external CVE database)
+known_vulnerable_packages := {
+    "torch<1.9.0",
+    "tensorflow<2.4.0",
+    "numpy<1.19.0"
+}
+
+is_known_vulnerable(dep) if {
+    some vuln in known_vulnerable_packages
+    startswith(dep, extract_package_name(vuln))
+    # Simple version check - in production use proper version comparison
 }
