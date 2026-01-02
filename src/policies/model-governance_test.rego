@@ -55,6 +55,15 @@ valid_model := {
                 "minReplicas": 2,
                 "maxReplicas": 10
             }
+        },
+        "monitoring": {
+            "enabled": true,
+            "drift_detection": {"enabled": true},
+            "alerting": {"enabled": true}
+        },
+        "explainability": {
+            "method": "shap",
+            "enabled": true
         }
     }
 }
@@ -222,4 +231,37 @@ test_deny_missing_memory_limits if {
 test_warn_missing_autoscaling if {
     model := json.remove(valid_model, ["/spec/inference/autoscaling"])
     count([m | m := governance.warn[_]; contains(m, "autoscaling")]) > 0 with input as model
+}
+
+# -----------------------------------------------------------------------------
+# Test: Monitoring Requirements
+# -----------------------------------------------------------------------------
+
+test_deny_missing_monitoring if {
+    model := json.remove(valid_model, ["/spec/monitoring"])
+    "Model must include monitoring configuration" in governance.deny with input as model
+}
+
+test_deny_monitoring_disabled if {
+    model := json.patch(valid_model, [{"op": "replace", "path": "/spec/monitoring/enabled", "value": false}])
+    "Continuous monitoring must be enabled for production models" in governance.deny with input as model
+}
+
+# -----------------------------------------------------------------------------
+# Test: Semantic Versioning
+# -----------------------------------------------------------------------------
+
+test_deny_missing_version if {
+    model := json.remove(valid_model, ["/spec/model/version"])
+    "Model must have a version number" in governance.deny with input as model
+}
+
+test_deny_invalid_semver if {
+    model := json.patch(valid_model, [{"op": "replace", "path": "/spec/model/version", "value": "v2.1"}])
+    count([m | m := governance.deny[_]; contains(m, "not valid semantic versioning")]) > 0 with input as model
+}
+
+test_allow_valid_semver if {
+    model := json.patch(valid_model, [{"op": "replace", "path": "/spec/model/version", "value": "1.0.0"}])
+    governance.allow with input as model
 }
