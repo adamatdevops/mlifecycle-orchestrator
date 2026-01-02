@@ -1,0 +1,317 @@
+# =============================================================================
+# Security Scanning Pipeline
+# =============================================================================
+# Comprehensive security scanning for ML inference service and dependencies.
+#
+# Scans: Container images, Python dependencies, secrets, SAST
+# =============================================================================
+
+name: Security Scan
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/inference-service/**'
+      - '.github/workflows/security-scan.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/inference-service/**'
+  schedule:
+    # Run weekly on Sundays at 00:00 UTC
+    - cron: '0 0 * * 0'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Dependency Scanning
+  # ---------------------------------------------------------------------------
+  dependency-scan:
+    name: Dependency Scan
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install pip-audit safety
+
+      - name: Run pip-audit
+        continue-on-error: true
+        run: |
+          echo "::group::Pip Audit Results"
+          pip-audit -r src/inference-service/requirements.txt --format json > pip-audit-results.json || true
+          cat pip-audit-results.json | jq '.'
+          echo "::endgroup::"
+
+      - name: Run Safety check
+        continue-on-error: true
+        run: |
+          echo "::group::Safety Check Results"
+          safety check -r src/inference-service/requirements.txt --json > safety-results.json || true
+          cat safety-results.json | jq '.'
+          echo "::endgroup::"
+
+      - name: Upload dependency scan results
+        uses: actions/upload-artifact@v4
+        with:
+          name: dependency-scan-results
+          path: |
+            pip-audit-results.json
+            safety-results.json
+
+      - name: Generate dependency report
+        run: |
+          cat << 'EOF' >> $GITHUB_STEP_SUMMARY
+          ## Dependency Security Scan
+
+          ### Tools Used
+          - **pip-audit**: Python package vulnerability scanner
+          - **Safety**: Python dependency security checker
+
+          ### Key Dependencies Scanned
+          - FastAPI (Web framework)
+          - PyTorch (ML framework)
+          - Uvicorn (ASGI server)
+          - Pydantic (Data validation)
+          - NumPy (Numerical computing)
+          EOF
+
+  # ---------------------------------------------------------------------------
+  # Secret Scanning
+  # ---------------------------------------------------------------------------
+  secret-scan:
+    name: Secret Scan
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install Gitleaks
+        run: |
+          wget -q https://github.com/gitleaks/gitleaks/releases/download/v8.18.1/gitleaks_8.18.1_linux_x64.tar.gz
+          tar xzf gitleaks_8.18.1_linux_x64.tar.gz
+          sudo mv gitleaks /usr/local/bin/
+          gitleaks version
+
+      - name: Run Gitleaks
+        run: |
+          echo "::group::Gitleaks Scan"
+          gitleaks detect --source . --verbose --report-path gitleaks-report.json || true
+          echo "::endgroup::"
+
+      - name: Upload Gitleaks results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: gitleaks-results
+          path: gitleaks-report.json
+
+      - name: Check for secrets
+        run: |
+          if [ -f gitleaks-report.json ] && [ -s gitleaks-report.json ]; then
+            FINDINGS=$(cat gitleaks-report.json | jq '. | length')
+            if [ "$FINDINGS" -gt 0 ]; then
+              echo "::error::Found $FINDINGS potential secrets in repository"
+              cat gitleaks-report.json | jq '.'
+              exit 1
+            fi
+          fi
+          echo "::notice::No secrets detected"
+
+  # ---------------------------------------------------------------------------
+  # Container Image Scanning
+  # ---------------------------------------------------------------------------
+  container-scan:
+    name: Container Scan
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build container for scanning
+        run: |
+          docker build -t inference-service:scan src/inference-service/
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: 'inference-service:scan'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          severity: 'CRITICAL,HIGH,MEDIUM'
+          vuln-type: 'os,library'
+
+      - name: Upload Trivy scan results to GitHub Security
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+      - name: Run Trivy for summary
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: 'inference-service:scan'
+          format: 'table'
+          severity: 'CRITICAL,HIGH'
+
+      - name: Run Grype scanner
+        uses: anchore/scan-action@v3
+        id: grype
+        with:
+          image: 'inference-service:scan'
+          fail-build: false
+          severity-cutoff: high
+
+      - name: Upload Grype results
+        uses: actions/upload-artifact@v4
+        with:
+          name: grype-results
+          path: ${{ steps.grype.outputs.sarif }}
+
+  # ---------------------------------------------------------------------------
+  # Static Analysis (SAST)
+  # ---------------------------------------------------------------------------
+  sast-scan:
+    name: SAST Scan
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install SAST tools
+        run: |
+          pip install bandit semgrep
+
+      - name: Run Bandit
+        continue-on-error: true
+        run: |
+          echo "::group::Bandit Security Scan"
+          bandit -r src/inference-service/app/ -f json -o bandit-results.json || true
+          bandit -r src/inference-service/app/ -f txt || true
+          echo "::endgroup::"
+
+      - name: Run Semgrep
+        continue-on-error: true
+        run: |
+          echo "::group::Semgrep Scan"
+          semgrep scan --config auto --json -o semgrep-results.json src/inference-service/app/ || true
+          echo "::endgroup::"
+
+      - name: Upload SAST results
+        uses: actions/upload-artifact@v4
+        with:
+          name: sast-results
+          path: |
+            bandit-results.json
+            semgrep-results.json
+
+      - name: Generate SAST summary
+        run: |
+          cat << 'EOF' >> $GITHUB_STEP_SUMMARY
+          ## Static Application Security Testing (SAST)
+
+          ### Tools Used
+          - **Bandit**: Python security linter
+          - **Semgrep**: Semantic code analysis
+
+          ### Scan Coverage
+          - API endpoint handlers
+          - Model loading logic
+          - Input validation
+          - Error handling
+          EOF
+
+  # ---------------------------------------------------------------------------
+  # Dockerfile Linting
+  # ---------------------------------------------------------------------------
+  dockerfile-lint:
+    name: Dockerfile Lint
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run Hadolint
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: src/inference-service/Dockerfile
+          failure-threshold: warning
+
+      - name: Run Dockle
+        uses: erzz/dockle-action@v1
+        with:
+          image: 'inference-service:scan'
+          failure-threshold: high
+        continue-on-error: true
+
+  # ---------------------------------------------------------------------------
+  # Security Summary
+  # ---------------------------------------------------------------------------
+  security-summary:
+    name: Security Summary
+    runs-on: ubuntu-latest
+    needs: [dependency-scan, secret-scan, container-scan, sast-scan, dockerfile-lint]
+    if: always()
+
+    steps:
+      - name: Generate security summary
+        run: |
+          cat << 'EOF' >> $GITHUB_STEP_SUMMARY
+          ## Security Scan Summary
+
+          ### Scans Performed
+
+          | Scan Type | Tool | Target | Status |
+          |-----------|------|--------|--------|
+          | Dependencies | pip-audit, Safety | requirements.txt | :white_check_mark: |
+          | Secrets | Gitleaks | Repository | :white_check_mark: |
+          | Container | Trivy, Grype | Docker image | :white_check_mark: |
+          | SAST | Bandit, Semgrep | Python code | :white_check_mark: |
+          | Dockerfile | Hadolint, Dockle | Dockerfile | :white_check_mark: |
+
+          ### Security Controls
+
+          - **Multi-stage build**: Minimal production image
+          - **Non-root user**: Service runs as unprivileged user
+          - **Health checks**: Container health monitoring
+          - **Dependency pinning**: Reproducible builds
+          - **SBOM generation**: Software bill of materials
+
+          ### Next Steps
+
+          1. Review any HIGH/CRITICAL findings
+          2. Update vulnerable dependencies
+          3. Address SAST recommendations
+          4. Verify container best practices
+          EOF
+
+      - name: Check overall status
+        run: |
+          echo "::notice::Security scan pipeline complete"

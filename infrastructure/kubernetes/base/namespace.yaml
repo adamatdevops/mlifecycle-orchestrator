@@ -1,0 +1,14 @@
+# =============================================================================
+# Namespace
+# =============================================================================
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ml-inference
+  labels:
+    app.kubernetes.io/name: ml-inference
+    app.kubernetes.io/part-of: mlifecycle-orchestrator
+    istio-injection: enabled  # Optional: Enable if using Istio
+  annotations:
+    description: "ML inference workloads namespace"

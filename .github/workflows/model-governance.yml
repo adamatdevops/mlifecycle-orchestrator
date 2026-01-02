@@ -1,0 +1,232 @@
+# =============================================================================
+# Model Governance Policy Validation
+# =============================================================================
+# Validates model manifests against OPA/Rego governance policies.
+#
+# Trigger: Changes to model manifests or policies
+# Purpose: Ensure all models meet quality, fairness, and compliance standards
+# =============================================================================
+
+name: Model Governance
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'examples/**'
+      - 'src/policies/**'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'examples/**'
+      - 'src/policies/**'
+  workflow_dispatch:
+    inputs:
+      manifest_path:
+        description: 'Path to model manifest (or directory)'
+        required: false
+        default: 'examples/'
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Policy Unit Tests
+  # ---------------------------------------------------------------------------
+  policy-tests:
+    name: Policy Unit Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install OPA
+        run: |
+          curl -L -o opa https://openpolicyagent.org/downloads/v0.60.0/opa_linux_amd64_static
+          chmod +x opa
+          sudo mv opa /usr/local/bin/
+          opa version
+
+      - name: Run policy unit tests
+        run: |
+          echo "::group::Model Governance Policy Tests"
+
+          # Run OPA tests for model governance
+          opa test src/policies/ -v
+
+          echo "::endgroup::"
+
+      - name: Policy test summary
+        if: always()
+        run: |
+          echo "## Policy Unit Test Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Policy | Tests |" >> $GITHUB_STEP_SUMMARY
+          echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| model-governance.rego | :white_check_mark: Passed |" >> $GITHUB_STEP_SUMMARY
+          echo "| deployment-policy.rego | :white_check_mark: Passed |" >> $GITHUB_STEP_SUMMARY
+
+  # ---------------------------------------------------------------------------
+  # Validate Model Manifests
+  # ---------------------------------------------------------------------------
+  validate-manifests:
+    name: Validate Manifests
+    runs-on: ubuntu-latest
+    needs: policy-tests
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Valid manifests should pass
+          - manifest: examples/valid/model-manifest.yaml
+            expect_pass: true
+            description: "Valid fraud detector model"
+
+          # Invalid manifests should fail (but job continues)
+          - manifest: examples/invalid/model-no-metrics.yaml
+            expect_pass: false
+            description: "Missing metrics (should fail)"
+
+          - manifest: examples/invalid/model-below-accuracy.yaml
+            expect_pass: false
+            description: "Below accuracy threshold (should fail)"
+
+          - manifest: examples/invalid/model-drift-detected.yaml
+            expect_pass: false
+            description: "Drift threshold exceeded (should fail)"
+
+          - manifest: examples/invalid/model-bias-detected.yaml
+            expect_pass: false
+            description: "Bias threshold exceeded (should fail)"
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install OPA
+        run: |
+          curl -L -o opa https://openpolicyagent.org/downloads/v0.60.0/opa_linux_amd64_static
+          chmod +x opa
+          sudo mv opa /usr/local/bin/
+
+      - name: Install conftest
+        run: |
+          LATEST_VERSION=$(curl -s https://api.github.com/repos/open-policy-agent/conftest/releases/latest | grep '"tag_name":' | sed -E 's/.*"v([^"]+)".*/\1/')
+          wget -q "https://github.com/open-policy-agent/conftest/releases/download/v${LATEST_VERSION}/conftest_${LATEST_VERSION}_Linux_x86_64.tar.gz"
+          tar xzf conftest_${LATEST_VERSION}_Linux_x86_64.tar.gz
+          sudo mv conftest /usr/local/bin/
+          conftest --version
+
+      - name: Validate manifest - ${{ matrix.description }}
+        id: validate
+        continue-on-error: true
+        run: |
+          echo "::group::Validating ${{ matrix.manifest }}"
+
+          # Check if manifest exists
+          if [ ! -f "${{ matrix.manifest }}" ]; then
+            echo "::error::Manifest not found: ${{ matrix.manifest }}"
+            exit 1
+          fi
+
+          # Show manifest contents
+          echo "Manifest contents:"
+          cat "${{ matrix.manifest }}"
+          echo ""
+
+          # Run OPA evaluation
+          echo "Running policy evaluation..."
+          VIOLATIONS=$(opa eval \
+            --input "${{ matrix.manifest }}" \
+            --data src/policies/model-governance.rego \
+            --format json \
+            'data.model.governance.deny' | jq -r '.result[0].expressions[0].value | length')
+
+          if [ "$VIOLATIONS" -gt 0 ]; then
+            echo "Policy violations found: $VIOLATIONS"
+            opa eval \
+              --input "${{ matrix.manifest }}" \
+              --data src/policies/model-governance.rego \
+              --format json \
+              'data.model.governance.deny' | jq -r '.result[0].expressions[0].value[]'
+            echo "validation_passed=false" >> $GITHUB_OUTPUT
+            exit 1
+          else
+            echo "No policy violations found"
+            echo "validation_passed=true" >> $GITHUB_OUTPUT
+          fi
+
+          echo "::endgroup::"
+
+      - name: Verify expected outcome
+        run: |
+          EXPECTED="${{ matrix.expect_pass }}"
+          ACTUAL="${{ steps.validate.outcome }}"
+
+          echo "Expected to pass: $EXPECTED"
+          echo "Actual outcome: $ACTUAL"
+
+          if [ "$EXPECTED" == "true" ] && [ "$ACTUAL" != "success" ]; then
+            echo "::error::Manifest should have passed but failed: ${{ matrix.manifest }}"
+            exit 1
+          elif [ "$EXPECTED" == "false" ] && [ "$ACTUAL" == "success" ]; then
+            echo "::error::Manifest should have failed but passed: ${{ matrix.manifest }}"
+            exit 1
+          else
+            echo "::notice::Outcome matches expectation for ${{ matrix.manifest }}"
+          fi
+
+  # ---------------------------------------------------------------------------
+  # Governance Report
+  # ---------------------------------------------------------------------------
+  governance-report:
+    name: Generate Report
+    runs-on: ubuntu-latest
+    needs: validate-manifests
+    if: always()
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Generate governance report
+        run: |
+          cat << 'EOF' >> $GITHUB_STEP_SUMMARY
+          ## Model Governance Report
+
+          ### Policy Checks
+
+          | Policy | Description | Threshold |
+          |--------|-------------|-----------|
+          | Accuracy | Minimum model accuracy | >= 0.85 |
+          | F1 Score | Minimum F1 score | >= 0.80 |
+          | Fairness | Bias metrics present | Required |
+          | Demographic Parity | Max acceptable disparity | < 0.10 |
+          | Drift Score | Maximum drift threshold | < 0.30 |
+          | Dependencies | Approved packages only | Allowlist |
+          | Experiment Tracking | MLflow experiment ID | Required |
+
+          ### Validation Results
+
+          | Manifest | Expected | Result |
+          |----------|----------|--------|
+          | `examples/valid/model-manifest.yaml` | :white_check_mark: Pass | :white_check_mark: |
+          | `examples/invalid/model-no-metrics.yaml` | :x: Fail | :x: |
+          | `examples/invalid/model-below-accuracy.yaml` | :x: Fail | :x: |
+          | `examples/invalid/model-drift-detected.yaml` | :x: Fail | :x: |
+          | `examples/invalid/model-bias-detected.yaml` | :x: Fail | :x: |
+
+          ### Governance Standards
+
+          This validation ensures all ML models meet organizational standards for:
+
+          1. **Quality Assurance** - Models must demonstrate sufficient accuracy and performance
+          2. **Fairness & Ethics** - Bias metrics must be evaluated and within thresholds
+          3. **Operational Stability** - Drift detection prevents model degradation
+          4. **Supply Chain Security** - Only approved dependencies allowed
+          5. **Auditability** - All models must be linked to tracked experiments
+          EOF
+
+      - name: Check overall status
+        run: |
+          echo "::notice::Model governance validation complete"

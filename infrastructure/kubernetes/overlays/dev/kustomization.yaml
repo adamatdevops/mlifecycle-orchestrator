@@ -1,0 +1,61 @@
+# =============================================================================
+# Development Environment Overlay
+# =============================================================================
+
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: ml-inference-dev
+
+resources:
+  - ../../base
+
+namePrefix: dev-
+
+commonLabels:
+  environment: development
+
+# Development-specific image
+images:
+  - name: inference-service
+    newName: ghcr.io/mlifecycle-orchestrator/inference-service
+    newTag: dev
+
+# Development patches
+patches:
+  # Reduce replicas for dev
+  - patch: |-
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: inference-service
+      spec:
+        replicas: 1
+        template:
+          spec:
+            containers:
+              - name: inference
+                resources:
+                  requests:
+                    cpu: "100m"
+                    memory: "256Mi"
+                  limits:
+                    cpu: "500m"
+                    memory: "512Mi"
+
+  # Reduce HPA for dev
+  - patch: |-
+      apiVersion: autoscaling/v2
+      kind: HorizontalPodAutoscaler
+      metadata:
+        name: inference-service
+      spec:
+        minReplicas: 1
+        maxReplicas: 3
+
+configMapGenerator:
+  - name: inference-config
+    behavior: merge
+    literals:
+      - LOG_LEVEL=DEBUG
+      - MODEL_URI=demo

@@ -1,0 +1,50 @@
+# Gitleaks Configuration
+# Secret detection rules and allowlists
+
+title = "Gitleaks Configuration"
+
+[allowlist]
+description = "Global allowlist for false positives"
+
+# Regex patterns to ignore
+regexes = [
+    # Localhost URLs (not secrets)
+    '''localhost''',
+    '''127\.0\.0\.1''',
+    # Example domains
+    '''example\.com''',
+    '''example\.org''',
+    # Test/placeholder values
+    '''your-.*-here''',
+    '''REPLACE_ME''',
+    '''xxx+''',
+]
+
+# Paths to ignore
+paths = [
+    # Test files
+    '''tests?/.*''',
+    '''.*_test\.go''',
+    '''.*\.test\.(js|ts)''',
+    '''.*\.spec\.(js|ts)''',
+    # Example/fixture files
+    '''examples?/.*''',
+    '''fixtures?/.*''',
+    # Documentation
+    '''docs?/.*\.md''',
+    '''.*README.*''',
+    # Lock files
+    '''.*lock.*''',
+    '''.*-lock\..*''',
+]
+
+# Specific commits to ignore (add after investigation)
+# commits = [
+#     "commit-sha-here",
+# ]
+
+# Additional rules can be added below
+# [[rules]]
+# id = "custom-rule"
+# description = "Custom secret pattern"
+# regex = '''pattern'''

@@ -1,0 +1,58 @@
+# =============================================================================
+# Invalid Model Manifest: Below Accuracy Threshold
+# =============================================================================
+# This model has accuracy below the minimum threshold (0.85).
+# Policy violation: "Model accuracy 0.72 is below minimum threshold 0.85"
+#
+# Test: conftest test examples/invalid/model-below-accuracy.yaml -p src/policies/
+# Expected: FAIL
+# =============================================================================
+
+apiVersion: mlifecycle.io/v1
+kind: ModelDeployment
+metadata:
+  name: low-accuracy-model
+  namespace: ml-inference
+
+spec:
+  model:
+    name: low-accuracy-model
+    version: "1.0.0"
+    uri: s3://approved-data-bucket/models/low-accuracy/v1.0.0
+    framework: pytorch
+    experiment_id: exp-low-accuracy-001
+
+  metrics:
+    # VIOLATION: Accuracy below 0.85 threshold
+    accuracy: 0.72
+    f1_score: 0.68
+    precision: 0.75
+    recall: 0.62
+
+  fairness:
+    demographic_parity: 0.02
+    equalized_odds: 0.03
+
+  drift:
+    score: 0.05
+
+  dependencies:
+    - torch>=2.0.0
+    - numpy>=1.24.0
+
+  data_sources:
+    - source: transactions-prod
+      approved: true
+
+  inference:
+    replicas: 2
+    resources:
+      requests:
+        cpu: "500m"
+        memory: "1Gi"
+      limits:
+        cpu: "2"
+        memory: "4Gi"
+    autoscaling:
+      minReplicas: 2
+      maxReplicas: 10

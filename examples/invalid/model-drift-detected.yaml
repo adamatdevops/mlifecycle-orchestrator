@@ -1,0 +1,64 @@
+# =============================================================================
+# Invalid Model Manifest: Critical Drift Detected
+# =============================================================================
+# This model has drift score above the critical threshold (0.3).
+# Policy violation: "Model drift score exceeds critical threshold"
+#
+# Test: conftest test examples/invalid/model-drift-detected.yaml -p src/policies/
+# Expected: FAIL
+# =============================================================================
+
+apiVersion: mlifecycle.io/v1
+kind: ModelDeployment
+metadata:
+  name: drifted-model
+  namespace: ml-inference
+
+spec:
+  model:
+    name: drifted-model
+    version: "1.5.0"
+    uri: s3://approved-data-bucket/models/drifted/v1.5.0
+    framework: pytorch
+    experiment_id: exp-drifted-001
+
+  metrics:
+    accuracy: 0.91
+    f1_score: 0.88
+    precision: 0.90
+    recall: 0.86
+
+  fairness:
+    demographic_parity: 0.02
+    equalized_odds: 0.03
+
+  drift:
+    # VIOLATION: Drift score exceeds critical threshold (0.3)
+    score: 0.45
+    reference_dataset: "2024-06-baseline"
+    monitored_features:
+      - transaction_amount
+      - merchant_category
+    last_evaluated: "2025-01-02"
+    # Note: This model was trained 6 months ago and data distribution has shifted
+
+  dependencies:
+    - torch>=2.0.0
+    - numpy>=1.24.0
+
+  data_sources:
+    - source: transactions-prod
+      approved: true
+
+  inference:
+    replicas: 2
+    resources:
+      requests:
+        cpu: "500m"
+        memory: "1Gi"
+      limits:
+        cpu: "2"
+        memory: "4Gi"
+    autoscaling:
+      minReplicas: 2
+      maxReplicas: 10

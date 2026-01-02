@@ -1,0 +1,25 @@
+# Snyk Policy File
+# https://docs.snyk.io/scan-applications/snyk-code/using-snyk-code-from-the-command-line/excluding-directories-and-files-from-snyk-code-cli-tests
+
+version: v1.25.0
+
+# Global ignores
+exclude:
+  global:
+    # Test files with intentional vulnerabilities
+    - examples/invalid/**
+    - tests/fixtures/vulnerable/**
+    # Dependencies (scanned separately)
+    - node_modules/**
+    - vendor/**
+    - .venv/**
+
+# Language-specific settings
+# ignore:
+#   'SNYK-JS-EXAMPLE-123456':
+#     - '*':
+#         reason: 'False positive - not applicable to our usage'
+#         expires: 2025-12-31T00:00:00.000Z
+
+# Patch settings (if using Snyk patches)
+# patch: {}

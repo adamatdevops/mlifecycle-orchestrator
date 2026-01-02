@@ -1,0 +1,64 @@
+# =============================================================================
+# Invalid Model Manifest: Bias/Fairness Violation
+# =============================================================================
+# This model has fairness metrics that exceed the bias threshold.
+# Policy violation: "Demographic parity exceeds maximum bias threshold"
+#
+# Test: conftest test examples/invalid/model-bias-detected.yaml -p src/policies/
+# Expected: FAIL
+# =============================================================================
+
+apiVersion: mlifecycle.io/v1
+kind: ModelDeployment
+metadata:
+  name: biased-model
+  namespace: ml-inference
+
+spec:
+  model:
+    name: biased-model
+    version: "1.0.0"
+    uri: s3://approved-data-bucket/models/biased/v1.0.0
+    framework: pytorch
+    experiment_id: exp-biased-001
+
+  metrics:
+    accuracy: 0.92
+    f1_score: 0.89
+    precision: 0.91
+    recall: 0.87
+
+  fairness:
+    # VIOLATION: Demographic parity exceeds 0.1 threshold
+    demographic_parity: 0.18
+    # VIOLATION: Equalized odds exceeds 0.1 threshold
+    equalized_odds: 0.15
+    evaluation_date: "2025-01-02"
+    protected_attributes:
+      - gender
+      - age_group
+    # Note: Model shows significant disparity across demographic groups
+
+  drift:
+    score: 0.05
+
+  dependencies:
+    - torch>=2.0.0
+    - numpy>=1.24.0
+
+  data_sources:
+    - source: transactions-prod
+      approved: true
+
+  inference:
+    replicas: 2
+    resources:
+      requests:
+        cpu: "500m"
+        memory: "1Gi"
+      limits:
+        cpu: "2"
+        memory: "4Gi"
+    autoscaling:
+      minReplicas: 2
+      maxReplicas: 10

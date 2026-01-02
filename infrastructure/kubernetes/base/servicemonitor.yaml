@@ -1,0 +1,87 @@
+# =============================================================================
+# ServiceMonitor (Prometheus)
+# =============================================================================
+# Configures Prometheus to scrape metrics from inference service.
+# =============================================================================
+
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: inference-service
+  labels:
+    app: inference-service
+    release: prometheus  # Match Prometheus Operator label selector
+spec:
+  selector:
+    matchLabels:
+      app: inference-service
+  namespaceSelector:
+    matchNames:
+      - ml-inference
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 15s
+      scrapeTimeout: 10s
+      honorLabels: true
+
+---
+# PrometheusRule for alerting
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: inference-service-alerts
+  labels:
+    app: inference-service
+    release: prometheus
+spec:
+  groups:
+    - name: inference-service
+      interval: 30s
+      rules:
+        # High error rate
+        - alert: InferenceHighErrorRate
+          expr: |
+            (
+              rate(inference_errors_total[5m]) /
+              rate(inference_requests_total[5m])
+            ) > 0.05
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "High inference error rate"
+            description: "Inference error rate is above 5% for the last 5 minutes"
+
+        # High latency
+        - alert: InferenceHighLatency
+          expr: |
+            inference_latency_seconds > 1
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "High inference latency"
+            description: "Inference latency is above 1 second"
+
+        # Service down
+        - alert: InferenceServiceDown
+          expr: |
+            up{job="inference-service"} == 0
+          for: 2m
+          labels:
+            severity: critical
+          annotations:
+            summary: "Inference service is down"
+            description: "Inference service has been down for more than 2 minutes"
+
+        # Low replica count
+        - alert: InferenceLowReplicaCount
+          expr: |
+            kube_deployment_status_replicas_available{deployment="inference-service"} < 2
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Low replica count for inference service"
+            description: "Inference service has fewer than 2 available replicas"

@@ -1,0 +1,38 @@
+{
+    // Enable all rules by default, then customize below
+    "default": true,
+  
+    // Heading styles and consistency
+    "MD003": { "style": "consistent" },          // ### vs ## — keep it consistent
+    "MD004": { "style": "dash" },                // Use "-" for unordered lists
+    "MD007": { "indent": 2 },                    // 2-space list indentation
+    "MD024": { "allow_different_nesting": true },// Allow same headings at different nesting
+    "MD025": { "level": 1, "siblings_only": true }, // Only one H1 per doc; allow multiple H1s in separate sections
+    "MD026": { "punctuation": ".,;:!?" },        // No trailing punctuation on headings (except common marks)
+  
+    // Whitespace & formatting
+    "MD009": { "br_spaces": 2 },                 // Enforce 2 spaces at line breaks
+    "MD012": { "maximum": 2 },                   // Max 2 consecutive blank lines
+    "MD013": {                                   // Line length
+      "line_length": 120,
+      "code_blocks": false,                      // Ignore code blocks
+      "tables": false,                           // Ignore tables
+      "headings": false,                         // Ignore headings
+      "strict": false
+    },
+    "MD029": { "style": "ordered" },             // Ordered lists increment correctly
+    "MD030": { "ul_single": 1, "ol_single": 1, "ul_multi": 1, "ol_multi": 1 }, // List marker spacing
+    "MD032": true,                               // Lists/blocks surrounded by blank lines
+  
+    // Links, emphasis, code
+    "MD033": {                                   // Allow limited inline HTML often used in docs
+      "allowed_elements": ["br", "details", "summary", "img", "kbd", "sub", "sup", "a"]
+    },
+    "MD034": true,                               // No bare URLs
+    "MD036": { "punctuation": ".,;:!?" },        // No emphasis as a heading
+    "MD038": true,                               // No spaces inside code spans
+    "MD041": true,                               // First line should be a top-level heading
+    "MD046": { "style": "fenced" },              // Use fenced code blocks
+    "MD048": { "style": "backtick" }             // Use backticks for fenced code
+  }
+  

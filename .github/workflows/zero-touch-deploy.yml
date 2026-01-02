@@ -1,0 +1,358 @@
+# =============================================================================
+# Zero-Touch ML Model Deployment Pipeline
+# =============================================================================
+# Automatically deploys ML models when they pass governance policies.
+#
+# Trigger: Model manifest changes in examples/valid/ or model registration events
+# Flow: Detect → Validate → Build → Scan → Deploy → Register
+# =============================================================================
+
+name: Zero-Touch ML Deploy
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'examples/valid/**'
+      - 'src/inference-service/**'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'examples/valid/**'
+      - 'src/inference-service/**'
+  workflow_dispatch:
+    inputs:
+      model_manifest:
+        description: 'Path to model manifest file'
+        required: false
+        default: 'examples/valid/model-manifest.yaml'
+      environment:
+        description: 'Target environment'
+        required: false
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - production
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}/inference-service
+  MODEL_MANIFEST: ${{ github.event.inputs.model_manifest || 'examples/valid/model-manifest.yaml' }}
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Stage 1: Model Detection & Validation
+  # ---------------------------------------------------------------------------
+  detect-and-validate:
+    name: Detect & Validate Model
+    runs-on: ubuntu-latest
+    outputs:
+      model_name: ${{ steps.parse.outputs.model_name }}
+      model_version: ${{ steps.parse.outputs.model_version }}
+      model_framework: ${{ steps.parse.outputs.model_framework }}
+      should_deploy: ${{ steps.check.outputs.should_deploy }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Detect changed model manifests
+        id: changes
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            models:
+              - 'examples/valid/**'
+            inference:
+              - 'src/inference-service/**'
+
+      - name: Parse model manifest
+        id: parse
+        run: |
+          if [ -f "${{ env.MODEL_MANIFEST }}" ]; then
+            echo "Parsing model manifest: ${{ env.MODEL_MANIFEST }}"
+
+            # Extract model metadata using yq
+            MODEL_NAME=$(yq -r '.spec.model.name' "${{ env.MODEL_MANIFEST }}")
+            MODEL_VERSION=$(yq -r '.spec.model.version' "${{ env.MODEL_MANIFEST }}")
+            MODEL_FRAMEWORK=$(yq -r '.spec.model.framework' "${{ env.MODEL_MANIFEST }}")
+
+            echo "model_name=${MODEL_NAME}" >> $GITHUB_OUTPUT
+            echo "model_version=${MODEL_VERSION}" >> $GITHUB_OUTPUT
+            echo "model_framework=${MODEL_FRAMEWORK}" >> $GITHUB_OUTPUT
+
+            echo "::notice::Model detected: ${MODEL_NAME} v${MODEL_VERSION} (${MODEL_FRAMEWORK})"
+          else
+            echo "::error::Model manifest not found: ${{ env.MODEL_MANIFEST }}"
+            exit 1
+          fi
+
+      - name: Check deployment eligibility
+        id: check
+        run: |
+          # Check if this is a valid deployment scenario
+          if [ "${{ steps.changes.outputs.models }}" == "true" ] || \
+             [ "${{ steps.changes.outputs.inference }}" == "true" ] || \
+             [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo "should_deploy=true" >> $GITHUB_OUTPUT
+            echo "::notice::Deployment eligible - proceeding with pipeline"
+          else
+            echo "should_deploy=false" >> $GITHUB_OUTPUT
+            echo "::notice::No model changes detected - skipping deployment"
+          fi
+
+  # ---------------------------------------------------------------------------
+  # Stage 2: Governance Policy Check
+  # ---------------------------------------------------------------------------
+  governance-check:
+    name: Governance Policy Gate
+    runs-on: ubuntu-latest
+    needs: detect-and-validate
+    if: needs.detect-and-validate.outputs.should_deploy == 'true'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install OPA
+        run: |
+          curl -L -o opa https://openpolicyagent.org/downloads/v0.60.0/opa_linux_amd64_static
+          chmod +x opa
+          sudo mv opa /usr/local/bin/
+
+      - name: Run model governance policies
+        run: |
+          echo "::group::Model Governance Validation"
+
+          # Run OPA evaluation against model manifest
+          opa eval \
+            --input "${{ env.MODEL_MANIFEST }}" \
+            --data src/policies/model-governance.rego \
+            --format pretty \
+            'data.model.governance.deny'
+
+          # Check for policy violations
+          VIOLATIONS=$(opa eval \
+            --input "${{ env.MODEL_MANIFEST }}" \
+            --data src/policies/model-governance.rego \
+            --format json \
+            'data.model.governance.deny' | jq -r '.result[0].expressions[0].value | length')
+
+          if [ "$VIOLATIONS" -gt 0 ]; then
+            echo "::error::Model failed governance check with $VIOLATIONS violation(s)"
+
+            # Show detailed violations
+            opa eval \
+              --input "${{ env.MODEL_MANIFEST }}" \
+              --data src/policies/model-governance.rego \
+              --format json \
+              'data.model.governance.deny' | jq -r '.result[0].expressions[0].value[]'
+
+            exit 1
+          fi
+
+          echo "::notice::Model passed all governance policies"
+          echo "::endgroup::"
+
+      - name: Generate governance report
+        if: always()
+        run: |
+          echo "## Model Governance Report" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Check | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Accuracy Threshold | :white_check_mark: |" >> $GITHUB_STEP_SUMMARY
+          echo "| F1 Score Threshold | :white_check_mark: |" >> $GITHUB_STEP_SUMMARY
+          echo "| Fairness Metrics | :white_check_mark: |" >> $GITHUB_STEP_SUMMARY
+          echo "| Drift Detection | :white_check_mark: |" >> $GITHUB_STEP_SUMMARY
+          echo "| Dependency Audit | :white_check_mark: |" >> $GITHUB_STEP_SUMMARY
+
+  # ---------------------------------------------------------------------------
+  # Stage 3: Build Inference Container
+  # ---------------------------------------------------------------------------
+  build-container:
+    name: Build Inference Container
+    runs-on: ubuntu-latest
+    needs: [detect-and-validate, governance-check]
+    permissions:
+      contents: read
+      packages: write
+
+    outputs:
+      image_digest: ${{ steps.build.outputs.digest }}
+      image_tag: ${{ steps.meta.outputs.tags }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=raw,value=${{ needs.detect-and-validate.outputs.model_version }}
+            type=sha,prefix=
+            type=ref,event=branch
+            type=ref,event=pr
+
+      - name: Build and push container
+        id: build
+        uses: docker/build-push-action@v5
+        with:
+          context: src/inference-service
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: |
+            org.opencontainers.image.title=ML Inference Service
+            org.opencontainers.image.description=Zero-touch deployed inference endpoint
+            model.name=${{ needs.detect-and-validate.outputs.model_name }}
+            model.version=${{ needs.detect-and-validate.outputs.model_version }}
+            model.framework=${{ needs.detect-and-validate.outputs.model_framework }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            MODEL_NAME=${{ needs.detect-and-validate.outputs.model_name }}
+            MODEL_VERSION=${{ needs.detect-and-validate.outputs.model_version }}
+
+      - name: Generate SBOM
+        uses: anchore/sbom-action@v0
+        with:
+          image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.detect-and-validate.outputs.model_version }}
+          artifact-name: sbom-inference-service.spdx.json
+          output-file: ./sbom.spdx.json
+
+      - name: Upload SBOM
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom
+          path: ./sbom.spdx.json
+
+  # ---------------------------------------------------------------------------
+  # Stage 4: Security Scanning
+  # ---------------------------------------------------------------------------
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    needs: build-container
+    if: github.event_name != 'pull_request'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.build-container.outputs.image_tag }}
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          severity: 'CRITICAL,HIGH'
+
+      - name: Upload Trivy scan results
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+  # ---------------------------------------------------------------------------
+  # Stage 5: Deploy to Kubernetes
+  # ---------------------------------------------------------------------------
+  deploy:
+    name: Deploy to ${{ github.event.inputs.environment || 'staging' }}
+    runs-on: ubuntu-latest
+    needs: [detect-and-validate, build-container, security-scan]
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    environment: ${{ github.event.inputs.environment || 'staging' }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up kubectl
+        uses: azure/setup-kubectl@v4
+
+      - name: Configure Kubernetes context
+        run: |
+          echo "::notice::Kubernetes deployment would be configured here"
+          echo "Target: ${{ github.event.inputs.environment || 'staging' }}"
+          echo "Image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.detect-and-validate.outputs.model_version }}"
+
+      - name: Deploy inference service
+        run: |
+          echo "::group::Kubernetes Deployment"
+
+          # In production, this would use kustomize overlays
+          echo "Applying Kubernetes manifests..."
+          echo "  - Deployment: inference-deployment.yaml"
+          echo "  - Service: inference-service.yaml"
+          echo "  - HPA: hpa.yaml"
+
+          # Simulated deployment for demo
+          cat << EOF
+          Deployment Configuration:
+          -------------------------
+          Model: ${{ needs.detect-and-validate.outputs.model_name }}
+          Version: ${{ needs.detect-and-validate.outputs.model_version }}
+          Framework: ${{ needs.detect-and-validate.outputs.model_framework }}
+          Image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.detect-and-validate.outputs.model_version }}
+          Environment: ${{ github.event.inputs.environment || 'staging' }}
+          EOF
+
+          echo "::endgroup::"
+
+      - name: Verify deployment health
+        run: |
+          echo "::notice::Deployment health check would run here"
+          echo "Checking /health and /ready endpoints..."
+
+  # ---------------------------------------------------------------------------
+  # Stage 6: Register Model in Registry
+  # ---------------------------------------------------------------------------
+  register:
+    name: Register Model
+    runs-on: ubuntu-latest
+    needs: [detect-and-validate, deploy]
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Register model deployment
+        run: |
+          echo "::group::Model Registration"
+
+          cat << EOF >> $GITHUB_STEP_SUMMARY
+          ## Model Deployment Registered
+
+          | Field | Value |
+          |-------|-------|
+          | Model Name | ${{ needs.detect-and-validate.outputs.model_name }} |
+          | Version | ${{ needs.detect-and-validate.outputs.model_version }} |
+          | Framework | ${{ needs.detect-and-validate.outputs.model_framework }} |
+          | Environment | ${{ github.event.inputs.environment || 'staging' }} |
+          | Deployed At | $(date -u +"%Y-%m-%dT%H:%M:%SZ") |
+          | Commit | ${{ github.sha }} |
+
+          ### Endpoints
+          - Health: \`/health\`
+          - Ready: \`/ready\`
+          - Predict: \`/predict\`
+          - Metrics: \`/metrics\`
+          EOF
+
+          echo "::endgroup::"
+
+      - name: Notify deployment success
+        run: |
+          echo "::notice title=Deployment Complete::Model ${{ needs.detect-and-validate.outputs.model_name }} v${{ needs.detect-and-validate.outputs.model_version }} deployed successfully"

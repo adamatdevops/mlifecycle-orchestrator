@@ -1,0 +1,24 @@
+# Semgrep Ignore File
+# Exclude files/directories from SAST scanning
+
+# Test fixtures with intentional vulnerabilities
+examples/invalid/
+examples/invalid/*
+examples/invalid/**
+**/examples/invalid/**
+tests/fixtures/vulnerable/
+
+# Dependencies
+node_modules/
+node_modules/**
+vendor/
+.venv/
+
+# Build outputs
+dist/
+build/
+out/
+
+# Generated files
+*.min.js
+*.bundle.js

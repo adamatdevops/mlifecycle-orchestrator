@@ -1,0 +1,55 @@
+# =============================================================================
+# Invalid Model Manifest: Missing Metrics
+# =============================================================================
+# This model is missing required performance metrics.
+# Policy violation: "Model manifest must include performance metrics"
+#
+# Test: conftest test examples/invalid/model-no-metrics.yaml -p src/policies/
+# Expected: FAIL
+# =============================================================================
+
+apiVersion: mlifecycle.io/v1
+kind: ModelDeployment
+metadata:
+  name: incomplete-model
+  namespace: ml-inference
+
+spec:
+  model:
+    name: incomplete-model
+    version: "1.0.0"
+    uri: s3://approved-data-bucket/models/incomplete/v1.0.0
+    framework: pytorch
+    experiment_id: exp-incomplete-001
+
+  # VIOLATION: Missing metrics section entirely
+  # metrics:
+  #   accuracy: 0.94
+  #   f1_score: 0.90
+
+  fairness:
+    demographic_parity: 0.02
+    equalized_odds: 0.03
+
+  drift:
+    score: 0.05
+
+  dependencies:
+    - torch>=2.0.0
+
+  data_sources:
+    - source: transactions-prod
+      approved: true
+
+  inference:
+    replicas: 2
+    resources:
+      requests:
+        cpu: "500m"
+        memory: "1Gi"
+      limits:
+        cpu: "2"
+        memory: "4Gi"
+    autoscaling:
+      minReplicas: 2
+      maxReplicas: 10
