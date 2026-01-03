@@ -213,7 +213,7 @@ class TestMetricsEndpoint:
         """Metrics should include latency histogram buckets."""
         response = client.get("/metrics")
         content = response.text
-        assert "inference_latency_bucket" in content
+        assert "inference_request_duration_seconds_bucket" in content
 
 
 class TestAuthentication:

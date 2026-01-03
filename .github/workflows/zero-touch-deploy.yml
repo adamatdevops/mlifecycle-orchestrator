@@ -214,6 +214,7 @@ jobs:
       - name: Build and push container
         id: build
         uses: docker/build-push-action@v5
+        timeout-minutes: 30
         with:
           context: src/inference-service
           push: ${{ github.event_name != 'pull_request' }}
@@ -225,10 +226,11 @@ jobs:
             model.version=${{ needs.detect-and-validate.outputs.model_version }}
             model.framework=${{ needs.detect-and-validate.outputs.model_framework }}
           cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-to: type=gha,mode=min
           build-args: |
             MODEL_NAME=${{ needs.detect-and-validate.outputs.model_name }}
             MODEL_VERSION=${{ needs.detect-and-validate.outputs.model_version }}
+          provenance: false
 
       - name: Generate SBOM
         uses: anchore/sbom-action@v0

@@ -169,41 +169,49 @@ class Metrics:
         self.error_count += 1
 
     def to_prometheus(self) -> str:
-        return f"""# HELP inference_requests_total Total number of inference requests
-# TYPE inference_requests_total counter
-inference_requests_total{{model="{MODEL_NAME}",version="{MODEL_VERSION}"}} {self.request_count}
+        """Generate Prometheus-format metrics."""
+        labels = f'model="{MODEL_NAME}",version="{MODEL_VERSION}"'
 
-# HELP inference_predictions_total Total successful predictions
-# TYPE inference_predictions_total counter
-inference_predictions_total{{model="{MODEL_NAME}",version="{MODEL_VERSION}"}} {self.prediction_count}
+        def hist_labels(le: str) -> str:
+            return f'model="{MODEL_NAME}",version="{MODEL_VERSION}",le="{le}"'
 
-# HELP inference_instances_total Total instances processed
-# TYPE inference_instances_total counter
-inference_instances_total{{model="{MODEL_NAME}",version="{MODEL_VERSION}"}} {self.instances_processed}
-
-# HELP inference_errors_total Total prediction errors
-# TYPE inference_errors_total counter
-inference_errors_total{{model="{MODEL_NAME}",version="{MODEL_VERSION}"}} {self.error_count}
-
-# HELP inference_validation_errors_total Total validation errors
-# TYPE inference_validation_errors_total counter
-inference_validation_errors_total{{model="{MODEL_NAME}",version="{MODEL_VERSION}"}} {self.validation_error_count}
-
-# HELP inference_auth_errors_total Total authentication errors
-# TYPE inference_auth_errors_total counter
-inference_auth_errors_total{{model="{MODEL_NAME}",version="{MODEL_VERSION}"}} {self.auth_error_count}
-
-# HELP inference_request_duration_seconds Inference request duration in seconds
-# TYPE inference_request_duration_seconds histogram
-inference_request_duration_seconds_bucket{{model="{MODEL_NAME}",version="{MODEL_VERSION}",le="0.01"}} {self.latency_histogram["le_10ms"]}
-inference_request_duration_seconds_bucket{{model="{MODEL_NAME}",version="{MODEL_VERSION}",le="0.05"}} {self.latency_histogram["le_50ms"]}
-inference_request_duration_seconds_bucket{{model="{MODEL_NAME}",version="{MODEL_VERSION}",le="0.1"}} {self.latency_histogram["le_100ms"]}
-inference_request_duration_seconds_bucket{{model="{MODEL_NAME}",version="{MODEL_VERSION}",le="0.5"}} {self.latency_histogram["le_500ms"]}
-inference_request_duration_seconds_bucket{{model="{MODEL_NAME}",version="{MODEL_VERSION}",le="1.0"}} {self.latency_histogram["le_1000ms"]}
-inference_request_duration_seconds_bucket{{model="{MODEL_NAME}",version="{MODEL_VERSION}",le="+Inf"}} {self.latency_histogram["le_inf"]}
-inference_request_duration_seconds_sum{{model="{MODEL_NAME}",version="{MODEL_VERSION}"}} {self.request_latency_sum:.6f}
-inference_request_duration_seconds_count{{model="{MODEL_NAME}",version="{MODEL_VERSION}"}} {self.request_count}
-"""
+        lines = [
+            "# HELP inference_requests_total Total number of inference requests",
+            "# TYPE inference_requests_total counter",
+            f"inference_requests_total{{{labels}}} {self.request_count}",
+            "",
+            "# HELP inference_predictions_total Total successful predictions",
+            "# TYPE inference_predictions_total counter",
+            f"inference_predictions_total{{{labels}}} {self.prediction_count}",
+            "",
+            "# HELP inference_instances_total Total instances processed",
+            "# TYPE inference_instances_total counter",
+            f"inference_instances_total{{{labels}}} {self.instances_processed}",
+            "",
+            "# HELP inference_errors_total Total prediction errors",
+            "# TYPE inference_errors_total counter",
+            f"inference_errors_total{{{labels}}} {self.error_count}",
+            "",
+            "# HELP inference_validation_errors_total Total validation errors",
+            "# TYPE inference_validation_errors_total counter",
+            f"inference_validation_errors_total{{{labels}}} {self.validation_error_count}",
+            "",
+            "# HELP inference_auth_errors_total Total authentication errors",
+            "# TYPE inference_auth_errors_total counter",
+            f"inference_auth_errors_total{{{labels}}} {self.auth_error_count}",
+            "",
+            "# HELP inference_request_duration_seconds Inference request duration in seconds",
+            "# TYPE inference_request_duration_seconds histogram",
+            f'inference_request_duration_seconds_bucket{{{hist_labels("0.01")}}} {self.latency_histogram["le_10ms"]}',
+            f'inference_request_duration_seconds_bucket{{{hist_labels("0.05")}}} {self.latency_histogram["le_50ms"]}',
+            f'inference_request_duration_seconds_bucket{{{hist_labels("0.1")}}} {self.latency_histogram["le_100ms"]}',
+            f'inference_request_duration_seconds_bucket{{{hist_labels("0.5")}}} {self.latency_histogram["le_500ms"]}',
+            f'inference_request_duration_seconds_bucket{{{hist_labels("1.0")}}} {self.latency_histogram["le_1000ms"]}',
+            f'inference_request_duration_seconds_bucket{{{hist_labels("+Inf")}}} {self.latency_histogram["le_inf"]}',
+            f"inference_request_duration_seconds_sum{{{labels}}} {self.request_latency_sum:.6f}",
+            f"inference_request_duration_seconds_count{{{labels}}} {self.request_count}",
+        ]
+        return "\n".join(lines) + "\n"
 
 
 metrics = Metrics()
