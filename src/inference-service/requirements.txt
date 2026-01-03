@@ -7,6 +7,7 @@ uvicorn[standard]>=0.27.0
 pydantic>=2.5.0
 
 # ML Framework (PyTorch)
+# Note: Dockerfile installs CPU-only torch first for smaller image
 torch>=2.0.0
 numpy>=1.24.0
 
