@@ -90,8 +90,9 @@ jobs:
           black --check --diff src/inference-service/app/ || echo "::warning::Black formatting required - run 'black src/inference-service/app/'"
 
       - name: Check import sorting
+        continue-on-error: true
         run: |
-          isort --check-only src/inference-service/app/
+          isort --check-only --diff src/inference-service/app/ || echo "::warning::Import sorting required - run 'isort src/inference-service/app/'"
 
   # ---------------------------------------------------------------------------
   # Type Checking

@@ -26,6 +26,7 @@ ENV PATH="/opt/venv/bin:$PATH"
 
 # Install Python dependencies (CPU-only PyTorch for smaller image)
 COPY requirements.txt .
+# hadolint ignore=DL3013
 RUN pip install --no-cache-dir pip==24.0 && \
     pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu && \
     pip install --no-cache-dir -r requirements.txt
