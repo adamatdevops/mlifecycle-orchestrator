@@ -277,6 +277,10 @@ jobs:
           dockerfile: src/inference-service/Dockerfile
           failure-threshold: warning
 
+      - name: Build container for Dockle
+        run: |
+          docker build -t inference-service:scan src/inference-service/
+
       - name: Run Dockle
         uses: erzz/dockle-action@v1
         with:

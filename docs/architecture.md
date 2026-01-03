@@ -220,7 +220,7 @@ Code/Model ──▶ Policy Check ──▶ SBOM Generated ──▶ Scan ──
 | `inference_requests_total` | Counter | Total inference requests |
 | `inference_predictions_total` | Counter | Successful predictions |
 | `inference_errors_total` | Counter | Failed predictions |
-| `inference_latency_seconds` | Gauge | Average inference latency |
+| `inference_request_duration_seconds` | Histogram | Request duration distribution |
 
 ## Scaling Strategy
 

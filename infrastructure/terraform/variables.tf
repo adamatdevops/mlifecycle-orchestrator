@@ -61,6 +61,12 @@ variable "kubernetes_version" {
   default     = "1.28"
 }
 
+variable "enable_public_endpoint" {
+  description = "Enable public access to EKS API endpoint - set to false in production"
+  type        = bool
+  default     = false
+}
+
 variable "inference_instance_types" {
   description = "EC2 instance types for inference nodes"
   type        = list(string)
@@ -94,10 +100,15 @@ variable "enable_observability" {
 }
 
 variable "grafana_admin_password" {
-  description = "Grafana admin password"
+  description = "Grafana admin password - MUST be changed in production"
   type        = string
-  default     = "admin"  # Change in production!
   sensitive   = true
+  # No default - must be explicitly provided
+
+  validation {
+    condition     = length(var.grafana_admin_password) >= 12
+    error_message = "Grafana admin password must be at least 12 characters"
+  }
 }
 
 # -----------------------------------------------------------------------------

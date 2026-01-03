@@ -67,6 +67,9 @@ jobs:
             inference:
               - 'src/inference-service/**'
 
+      - name: Install yq
+        uses: mikefarah/yq@v4.44.1
+
       - name: Parse model manifest
         id: parse
         run: |

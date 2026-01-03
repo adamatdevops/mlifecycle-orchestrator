@@ -131,8 +131,8 @@ module "eks" {
   vpc_id     = module.vpc.vpc_id
   subnet_ids = module.vpc.private_subnets
 
-  # Cluster access
-  cluster_endpoint_public_access  = true
+  # Cluster access - SECURITY: Set public_access to false in production
+  cluster_endpoint_public_access  = var.enable_public_endpoint
   cluster_endpoint_private_access = true
 
   # Managed node groups for inference workloads

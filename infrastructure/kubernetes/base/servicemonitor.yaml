@@ -16,8 +16,7 @@ spec:
     matchLabels:
       app: inference-service
   namespaceSelector:
-    matchNames:
-      - ml-inference
+    any: true  # Scrape from any namespace; overlays can restrict if needed
   endpoints:
     - port: http
       path: /metrics
@@ -53,16 +52,16 @@ spec:
             summary: "High inference error rate"
             description: "Inference error rate is above 5% for the last 5 minutes"
 
-        # High latency
+        # High latency (p99)
         - alert: InferenceHighLatency
           expr: |
-            inference_latency_seconds > 1
+            histogram_quantile(0.99, rate(inference_request_duration_seconds_bucket[5m])) > 1
           for: 5m
           labels:
             severity: warning
           annotations:
             summary: "High inference latency"
-            description: "Inference latency is above 1 second"
+            description: "Inference p99 latency is above 1 second"
 
         # Service down
         - alert: InferenceServiceDown

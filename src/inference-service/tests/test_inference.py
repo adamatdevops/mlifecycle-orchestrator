@@ -188,7 +188,7 @@ class TestMetricsEndpoint:
         assert "inference_requests_total" in content
         assert "inference_predictions_total" in content
         assert "inference_errors_total" in content
-        assert "inference_latency_seconds" in content
+        assert "inference_request_duration_seconds" in content
         assert "inference_instances_total" in content
         assert "inference_validation_errors_total" in content
 
