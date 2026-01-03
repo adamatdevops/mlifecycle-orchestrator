@@ -15,6 +15,14 @@ Zero-touch ML model deployment platform with policy-as-code governance.
 [![FastAPI](https://img.shields.io/badge/FastAPI-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
 [![PyTorch](https://img.shields.io/badge/PyTorch-EE4C2C?logo=pytorch&logoColor=white)](https://pytorch.org/)
 
+[![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
+[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+[![Docker](https://img.shields.io/badge/docker-%230db7ed.svg?logo=docker&logoColor=white)](https://www.docker.com/)
+[![Trivy](https://img.shields.io/badge/Trivy-Security%20Scanner-1904DA?logo=aqua)](https://trivy.dev/)
+[![Grype](https://img.shields.io/badge/Grype-Vulnerability%20Scanner-blue?logo=anchore)](https://github.com/anchore/grype)
+[![Gitleaks](https://img.shields.io/badge/Gitleaks-Secret%20Scanner-red)](https://github.com/gitleaks/gitleaks)
+[![Hadolint](https://img.shields.io/badge/Hadolint-Dockerfile%20Linter-blue)](https://github.com/hadolint/hadolint)
+
 ## Overview
 
 Data scientists push a model manifest. The platform deploys it to production automatically.
