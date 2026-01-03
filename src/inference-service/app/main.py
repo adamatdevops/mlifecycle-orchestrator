@@ -21,9 +21,7 @@ import uuid
 from datetime import datetime
 from typing import Any, Optional
 from contextlib import asynccontextmanager
-from functools import wraps
-
-from fastapi import FastAPI, HTTPException, Request, Depends, Security
+from fastapi import FastAPI, Request, Depends, Security
 from fastapi.security import APIKeyHeader
 from fastapi.responses import PlainTextResponse, JSONResponse
 from pydantic import BaseModel, Field, field_validator
@@ -171,7 +169,6 @@ class Metrics:
         self.error_count += 1
 
     def to_prometheus(self) -> str:
-        avg_latency = self.request_latency_sum / max(self.request_count, 1)
         return f"""# HELP inference_requests_total Total number of inference requests
 # TYPE inference_requests_total counter
 inference_requests_total{{model="{MODEL_NAME}",version="{MODEL_VERSION}"}} {self.request_count}
