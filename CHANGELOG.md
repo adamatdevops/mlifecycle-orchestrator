@@ -7,6 +7,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0] - 2025-01-03
+
+### Added
+
+- Status badges for code quality tools (Ruff, Black)
+- Status badges for security scanners (Trivy, Grype, Gitleaks, Hadolint, Docker)
+- Monitoring requirements validation in governance policies
+- Explainability requirements validation in governance policies
+- Semantic versioning validation for model versions
+- Disk space cleanup step before container scanning
+- Python version matrix testing (3.10, 3.11, 3.12)
+
+### Changed
+
+- Black and isort checks are now non-blocking (warnings instead of failures)
+- Container build uses CPU-only PyTorch for significantly smaller images (~500MB vs ~2GB)
+- Pinned Trivy action to v0.28.0 for stability
+- Container build timeout increased to 30 minutes
+- Prometheus metrics standardized to `inference_request_duration_seconds` histogram
+
+### Fixed
+
+- Security-events permission for SARIF upload in zero-touch-deploy workflow
+- Trivy image reference format (single tag instead of multiline)
+- Hadolint warnings in Dockerfile (DL3008, DL3013)
+- ServiceMonitor namespace selector alignment
+- Terraform security defaults (encryption, public access blocks)
+- Policy tests aligned with governance requirements
+- pytest PYTHONPATH configuration for test discovery
+- Ruff linting errors (unused imports)
+
+### Security
+
+- Added `security-events: write` permission for vulnerability reporting
+- Enhanced container scanning with proper SARIF upload
+- Improved secret scanning with Gitleaks integration
+
 ## [1.0.0] - 2025-01-02
 
 ### Added
@@ -72,5 +109,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - IRSA for AWS service access
 - Encrypted storage (S3, EBS)
 
-[Unreleased]: https://github.com/adamatdevops/mlifecycle-orchestrator/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/adamatdevops/mlifecycle-orchestrator/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/adamatdevops/mlifecycle-orchestrator/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/adamatdevops/mlifecycle-orchestrator/releases/tag/v1.0.0

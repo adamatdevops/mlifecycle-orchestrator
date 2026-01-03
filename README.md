@@ -134,6 +134,9 @@ Models must pass all policies before deployment:
 | Demographic Parity | < 0.10 | Fair across groups |
 | Drift Score | < 0.30 | Model stability |
 | Dependencies | Allowlist | Supply chain security |
+| Monitoring | Required | Observability enabled |
+| Explainability | Required | Model interpretability |
+| Version Format | Semantic | Valid semver (e.g., 1.0.0) |
 
 ### Policy Validation
 
@@ -273,11 +276,27 @@ kustomize build infrastructure/kubernetes/overlays/prod | kubectl apply -f -
 
 ## Security
 
-- **Container**: Multi-stage build, non-root user, read-only filesystem
-- **Scanning**: Trivy, Grype, Gitleaks, Bandit
-- **Network**: Kubernetes NetworkPolicy
-- **Access**: IRSA for AWS, minimal permissions
-- **Supply Chain**: SBOM generation, dependency allowlist
+### Container Security
+- Multi-stage Docker builds for minimal attack surface
+- Non-root user execution
+- Read-only filesystem
+- Health checks enabled
+
+### Security Scanning
+
+| Category | Tools | Purpose |
+|----------|-------|---------|
+| Container | Trivy, Grype | Vulnerability scanning |
+| Dependencies | pip-audit, Safety | Python package vulnerabilities |
+| Secrets | Gitleaks | Credential detection |
+| SAST | Bandit, Semgrep | Static code analysis |
+| Dockerfile | Hadolint, Dockle | Best practices linting |
+
+### Infrastructure Security
+- Kubernetes NetworkPolicy for pod isolation
+- IRSA for AWS service access (minimal permissions)
+- Encrypted storage (S3, EBS)
+- SBOM generation for supply chain transparency
 
 ## Documentation
 
@@ -296,12 +315,14 @@ kustomize build infrastructure/kubernetes/overlays/prod | kubectl apply -f -
 | Policy Engine | Open Policy Agent, Rego |
 | ML Framework | PyTorch |
 | API Framework | FastAPI, Uvicorn |
-| Container | Docker, OCI |
+| Container | Docker, Buildx |
 | Orchestration | Kubernetes, Kustomize |
 | Infrastructure | Terraform, AWS EKS |
 | CI/CD | GitHub Actions |
 | Observability | Prometheus, Grafana |
-| Security | Trivy, Grype, Gitleaks |
+| Code Quality | Ruff, Black, isort, mypy |
+| Security | Trivy, Grype, Gitleaks, Hadolint, Bandit |
+| Testing | pytest, OPA test |
 
 ## License
 
